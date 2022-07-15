@@ -10,12 +10,14 @@ from scielo_core.id_provider import xml_sps
 from scielo_core.config import SCIELO_CORE_ID_PROVIDER_DB_URI
 from scielo_core.config import SCIELO_CORE_WEBSITE_DB_URI
 
-mongo_db.mk_connection(SCIELO_CORE_WEBSITE_DB_URI)
-mongo_db.mk_connection(SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
-
 
 LOGGER = logging.getLogger(__name__)
 LOGGER_FMT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+
+def connect(uri_website=None, uri_id_provider=None):
+    mongo_db.mk_connection(uri_website or SCIELO_CORE_WEBSITE_DB_URI)
+    mongo_db.mk_connection(uri_id_provider or SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
 
 
 class FetchArticleError(Exception):

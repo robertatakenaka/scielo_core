@@ -14,10 +14,13 @@ from scielo_core.id_provider import (
 from scielo_core.config import SCIELO_CORE_ID_PROVIDER_DB_URI
 
 
-conn = mongo_db.mk_connection(SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
-
 LOGGER = logging.getLogger(__name__)
 LOGGER_FMT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+
+def connect(uri=None):
+    conn = mongo_db.mk_connection(
+        uri or SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
 
 
 def get_xml_by_v2(v2):

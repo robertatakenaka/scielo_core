@@ -15,6 +15,9 @@ logging.basicConfig(
     filename=config.SCIELO_CORE_ID_PROVIDER_LOGFILE, level=logging.DEBUG)
 
 
+controller.connect()
+
+
 def request_document_id(pkg_file_path, username):
     print(pkg_file_path, username)
     changed_xml = None

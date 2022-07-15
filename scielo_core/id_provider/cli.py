@@ -11,6 +11,9 @@ LOGGER = logging.getLogger(__name__)
 LOGGER_FMT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 
+controller.connect()
+
+
 def request_id(source_file_path, output_file_path):
     LOGGER.info(source_file_path)
     name, ext = os.path.splitext(source_file_path)
