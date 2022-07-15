@@ -8,6 +8,7 @@ from tenacity import (
     wait_exponential,
     stop_after_attempt,
 )
+from mongoengine.connection import ConnectionFailure
 from mongoengine.errors import NotUniqueError
 from mongoengine import (
     connect,
@@ -19,7 +20,7 @@ from scielo_core.basic import exceptions
 
 def mk_connection(host, alias=None):
     try:
-        _db_connect_by_uri(host, alias)
+        return _db_connect_by_uri(host, alias)
     except Exception as e:
         raise exceptions.DBConnectError(
             {"exception": type(e), "msg": str(e)}

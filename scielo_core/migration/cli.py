@@ -13,6 +13,9 @@ logging.basicConfig(
     filename=config.SCIELO_CORE_MIGRATION_LOGFILE, level=logging.DEBUG)
 
 
+controller.connect()
+
+
 def get_xml(v2):
     print(controller.get_xml(v2))
 

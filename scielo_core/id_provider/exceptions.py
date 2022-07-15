@@ -73,3 +73,12 @@ class NotAllowedAOPInputError(Exception):
 
 class QueryingDocumentWithoutIssueDataError(Exception):
     ...
+
+
+class ConnectionFailure(Exception):
+    ...
+
+
+class InvalidNewPackageError(Exception):
+    ...
+

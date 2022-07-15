@@ -14,10 +14,13 @@ from scielo_core.id_provider import (
 from scielo_core.config import SCIELO_CORE_ID_PROVIDER_DB_URI
 
 
-conn = mongo_db.mk_connection(SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
-
 LOGGER = logging.getLogger(__name__)
 LOGGER_FMT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+
+def connect(uri=None):
+    return mongo_db.mk_connection(
+        uri or SCIELO_CORE_ID_PROVIDER_DB_URI, 'scielo_core')
 
 
 def get_xml_by_v2(v2):
@@ -36,39 +39,68 @@ def get_xml(v3):
         return
 
 
-def request_document_ids_from_file(pkg_file_path, user=None, bkp_pkg_path=None):
+def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=None):
+    """
+    Request PID v3
+
+    Parameters
+    ----------
+    pkg_file_path: str
+        path of a zip file which contains at least one XML
+    user: str
+        requester
+    new_pkg_file_path: str
+        path of the resulting zip file
+
+    Returns
+    -------
+        dict
+            only the changed xml
+
+    """
     LOGGER.debug(pkg_file_path)
     user = user or 'unknown'
-    changes = {}
+    changed_xmls = {}
+    new_pkg_file_path = xml_sps.create_tmp_copy(pkg_file_path, new_pkg_file_path)
 
-    bkp_pkg_path = xml_sps.create_tmp_copy(pkg_file_path, bkp_pkg_path)
-
-    pkg_items = xml_sps_zip_file.get_xml_content_items(bkp_pkg_path)
+    pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
     for file_name in pkg_items.keys():
         try:
             prefix, xml = xml_sps.split_processing_instruction_doctype_declaration_and_xml(
                 pkg_items[file_name]
             )
             changed_xml = request_document_ids_from_xml(xml, file_name, user)
-            save_changed_xml(changed_xml, bkp_pkg_path, file_name, prefix)
             if changed_xml:
-                changes[file_name] = changed_xml
-        except Exception as e:
-            LOGGER.exception(
-                "Unexpected error request_document_ids_from_xml %s %s: %s %s" %
-                (bkp_pkg_path, file_name, type(e), e)
+                changed_xmls[file_name] = changed_xml
+                xml_sps_zip_file.update_zip_file_xml(
+                    new_pkg_file_path, file_name, prefix + changed_xml)
+
+        except (exceptions.InputDataError,
+                exceptions.ConclusionError) as e:
+            raise exceptions.RequestDocumentIdError(
+                "Request document id error %s %s: %s %s" %
+                (new_pkg_file_path, file_name, type(e), e)
             )
-    ret = {"pkg_path": bkp_pkg_path}
-    if any(changes.values()):
-        ret['changes'] = {k: v for k, v in changes.items() if v}
-    return ret
+    if changed_xmls:
+        # verificar se pacote está legível
+        pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
+        for file_name in pkg_items.keys():
+            try:
+                xmltree = xml_sps.get_xml_tree(pkg_items[file_name])
+            except exceptions.InvalidXMLError as e:
+                raise exceptions.InvalidNewPackageError(
+                    "Error in new package %s %s: %s %s" %
+                    (new_pkg_file_path, file_name, type(e), e)
+                )
+
+    return {"changed_xmls": changed_xmls, "pkg_path": new_pkg_file_path}
 
 
 def request_document_ids_from_xml(xml_content, file_name, user):
     try:
         arguments = xml_sps.IdRequestArguments(xml_content)
     except InvalidXMLError as e:
-        raise exceptions.InvalidXMLError(
+        raise exceptions.InputDataError(
             "Invalid XML in %s: %s" % (file_name, e)
         )
 
@@ -76,9 +108,12 @@ def request_document_ids_from_xml(xml_content, file_name, user):
         params = arguments.data
         params['user'] = user
         return request_document_ids(**params)
+    except mongo_db.ConnectionFailure as e:
+        raise exceptions.ConnectionFailure(e)
     except (
             exceptions.InputDataError,
             exceptions.QueryingDocumentInIssueError,
+            exceptions.QueryingDocumentWithoutIssueDataError,
             exceptions.QueryingDocumentAsAOPError,
             exceptions.FetchMostRecentRecordError,
             exceptions.NotEnoughParametersToGetDocumentRecordError,
@@ -92,12 +127,6 @@ def request_document_ids_from_xml(xml_content, file_name, user):
             exceptions.SavingError,
             ) as e:
         raise exceptions.ConclusionError(e)
-
-
-def save_changed_xml(changed_input_xml, pkg_file_path, file_name, prefix):
-    if changed_input_xml:
-        xml_sps_zip_file.update_zip_file_xml(
-            pkg_file_path, file_name, prefix + changed_input_xml)
 
 
 def request_document_ids(
@@ -634,6 +663,10 @@ def _get_document_omiting_issue_data(document_attribs):
     try:
         params = _get_query_parameters(document_attribs, omit_issue=True)
         return _fetch_most_recent_document(**params)
+    except mongo_db.ConnectionFailure as e:
+        raise exceptions.ConnectionFailure(
+            f"Querying document without issue data error: {e}"
+        )
     except exceptions.FetchMostRecentRecordError as e:
         raise exceptions.QueryingDocumentWithoutIssueDataError(
             f"Querying document without issue data error: {e}"
@@ -653,6 +686,10 @@ def _get_document_published_in_an_issue(document_attribs, with_v2=False):
     try:
         params = _get_query_parameters(document_attribs, with_v2=with_v2)
         return _fetch_most_recent_document(**params)
+    except mongo_db.ConnectionFailure as e:
+        raise exceptions.ConnectionFailure(
+            f"Querying document in an issue error: {e}"
+        )
     except exceptions.FetchMostRecentRecordError as e:
         raise exceptions.QueryingDocumentInIssueError(
             f"Querying document in an issue error: {e}"
@@ -678,6 +715,10 @@ def _get_document_published_as_aop(document_attribs):
     try:
         params = _get_query_parameters(document_attribs, aop_version=True)
         return _fetch_most_recent_document(**params)
+    except mongo_db.ConnectionFailure as e:
+        raise exceptions.ConnectionFailure(
+            f"Querying document as aop error: {e}"
+        )
     except exceptions.FetchMostRecentRecordError as e:
         raise exceptions.QueryingDocumentAsAOPError(
             f"Querying document as aop error: {e}"
@@ -930,6 +971,10 @@ def _standardize_partial_body(body):
 def _fetch_records(**kwargs):
     try:
         return mongo_db.fetch_records(models.Package, **kwargs)
+    except mongo_db.ConnectionFailure as e:
+        raise exceptions.ConnectionFailure(
+            f"Querying document as aop error: {e}"
+        )
     except Exception as e:
         raise exceptions.FetchRecordsError(
             "Fetching records error: %s %s %s" % (type(e), e, kwargs)

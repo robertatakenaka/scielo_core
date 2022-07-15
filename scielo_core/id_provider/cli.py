@@ -11,6 +11,9 @@ LOGGER = logging.getLogger(__name__)
 LOGGER_FMT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 
+controller.connect()
+
+
 def request_id(source_file_path, output_file_path):
     LOGGER.info(source_file_path)
     name, ext = os.path.splitext(source_file_path)
@@ -23,9 +26,12 @@ def _request_id(pkg_file_path, username):
     LOGGER.info("_request_id")
     if run_concurrently():
         LOGGER.info("tasks")
-        return tasks.request_id(pkg_file_path, username, get_result=False)
-    LOGGER.info("controller")
-    return controller.request_document_ids_from_file(pkg_file_path, username)
+        data = tasks.request_id(pkg_file_path, username, get_result=False)
+    else:
+        LOGGER.info("controller")
+        data = controller.request_document_ids_from_file(pkg_file_path, username)
+    print(data['pkg_path'])
+    print(data['changed_xmls'].keys())
 
 
 def _request_id_for_a_xml_list(source_file_path, output_file_path):

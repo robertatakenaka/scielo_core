@@ -15,6 +15,9 @@ logging.basicConfig(
     filename=config.SCIELO_CORE_ID_PROVIDER_LOGFILE, level=logging.DEBUG)
 
 
+controller.connect()
+
+
 def request_document_id(pkg_file_path, username):
     print(pkg_file_path, username)
     changed_xml = None
@@ -22,8 +25,8 @@ def request_document_id(pkg_file_path, username):
         LOGGER.debug("request_document_id %s %s" % (pkg_file_path, username))
         response = controller.request_document_ids_from_file(
             pkg_file_path, user=username)
-        if response.get("changes"):
-            changed_xml = response.get("changes").values()[0]
+        if response.get("changed_xmls"):
+            changed_xml = response.get("changed_xmls").values()[0]
     except (exceptions.NotAllowedAOPInputError):
         return HTTPStatus.FORBIDDEN
     except (exceptions.InvalidXMLError, exceptions.InputDataError):
