@@ -115,11 +115,11 @@ def get_xml_content_items(xml_sps_file_path):
                 name, ext = os.path.splitext(item)
                 if ext == ".xml":
                     try:
-                        items[name] = zf.read(item).decode("utf-8")
+                        items[item] = zf.read(item).decode("utf-8")
                     except Exception as e:
                         LOGGER.exception(
                             "Unable to read %s from %s: %s %s" %
-                            (xml_sps_file_path, name, type(e), e)
+                            (xml_sps_file_path, item, type(e), e)
 
                         )
     except BadZipFile:
@@ -128,9 +128,10 @@ def get_xml_content_items(xml_sps_file_path):
         )
         try:
             with open(xml_sps_file_path, "rb") as fp:
-                name, ext = os.path.splitext(os.path.basename(xml_sps_file_path))
+                item = os.path.basename(xml_sps_file_path)
+                name, ext = os.path.splitext(item)
                 if ext == ".xml":
-                    items[name] = fp.read().decode("utf-8")
+                    items[item] = fp.read().decode("utf-8")
         except IOError as e:
             raise XMLReadError(
                 "Unable to read %s: %s %s" %
