@@ -199,19 +199,22 @@ def fetch_records(Model, **kwargs):
     skip = ((page - 1) * items_per_page)
     limit = items_per_page
 
-    if qs and kwargs:
-        return Model.objects(
-            qs, **kwargs
-        ).order_by(order_by).skip(skip).limit(limit)
+    try:
+        if qs and kwargs:
+            return Model.objects(
+                qs, **kwargs
+            ).order_by(order_by).skip(skip).limit(limit)
 
-    if qs:
-        return Model.objects(
-            qs
-        ).order_by(order_by).skip(skip).limit(limit)
+        if qs:
+            return Model.objects(
+                qs
+            ).order_by(order_by).skip(skip).limit(limit)
 
-    return Model.objects(
-            **kwargs
-        ).order_by(order_by).skip(skip).limit(limit)
+        return Model.objects(
+                **kwargs
+            ).order_by(order_by).skip(skip).limit(limit)
+    except Exception as e:
+        raise exceptions.FetchRecordsError(e)
 
 
 def _get_EmbeddedDocumentListField_query_params(

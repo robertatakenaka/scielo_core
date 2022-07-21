@@ -31,7 +31,7 @@ def _request_id(pkg_file_path, username):
         LOGGER.info("controller")
         data = controller.request_document_ids_from_file(pkg_file_path, username)
     print(data['pkg_path'])
-    print(data['changed_xmls'].keys())
+    print(list(data['changed_xmls'].keys()))
 
 
 def _request_id_for_a_xml_list(source_file_path, output_file_path):

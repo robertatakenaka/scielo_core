@@ -4,7 +4,6 @@ from http import HTTPStatus
 from shutil import copyfile
 
 from scielo_core.basic import mongo_db, xml_sps_zip_file
-from scielo_core.basic.exceptions import InvalidXMLError
 from scielo_core.id_provider import (
     models,
     exceptions,
@@ -55,7 +54,14 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
     Returns
     -------
         dict
-            only the changed xml
+            {"changed_xmls": changed_xmls, "pkg_path": new_pkg_file_path}
+
+    Raises
+    ------
+    exceptions.InputDataError
+    exceptions.ConclusionError
+    exceptions.ConnectionFailure
+    exceptions.InvalidNewPackageError
 
     """
     LOGGER.debug(pkg_file_path)
@@ -75,9 +81,13 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
                 xml_sps_zip_file.update_zip_file_xml(
                     new_pkg_file_path, file_name, prefix + changed_xml)
 
-        except (exceptions.InputDataError,
-                exceptions.ConclusionError) as e:
-            raise exceptions.RequestDocumentIdError(
+        except exceptions.InputDataError as e:
+            raise exceptions.InputDataError(
+                "Request document id error %s %s: %s %s" %
+                (new_pkg_file_path, file_name, type(e), e)
+            )
+        except exceptions.ConclusionError as e:
+            raise exceptions.ConclusionError(
                 "Request document id error %s %s: %s %s" %
                 (new_pkg_file_path, file_name, type(e), e)
             )
@@ -99,7 +109,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
 def request_document_ids_from_xml(xml_content, file_name, user):
     try:
         arguments = xml_sps.IdRequestArguments(xml_content)
-    except InvalidXMLError as e:
+    except exceptions.InvalidXMLError as e:
         raise exceptions.InputDataError(
             "Invalid XML in %s: %s" % (file_name, e)
         )
@@ -108,6 +118,8 @@ def request_document_ids_from_xml(xml_content, file_name, user):
         params = arguments.data
         params['user'] = user
         return request_document_ids(**params)
+    except exceptions.NotAllowedAOPInputError as e:
+        raise e
     except mongo_db.ConnectionFailure as e:
         raise exceptions.ConnectionFailure(e)
     except (
@@ -312,7 +324,7 @@ def _log_request_update(request, data):
         request.save()
         LOGGER.debug("Update request done")
     except Exception as e:
-        LOGGER.debug("Error: Update request done")
+        LOGGER.exception("Error: Update request done %s %s" % (type(e), e))
 
 
 def _log_new_request(data, user):
@@ -327,7 +339,7 @@ def _log_new_request(data, user):
         LOGGER.debug("Registered request")
     except Exception as e:
         request = None
-        LOGGER.debug("Error: Register request")
+        LOGGER.exception("Error: Register request %s %s" % (type(e), e))
     return request
 
 

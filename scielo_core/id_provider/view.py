@@ -27,11 +27,11 @@ def request_document_id(pkg_file_path, username):
             pkg_file_path, user=username)
         if response.get("changed_xmls"):
             changed_xml = response.get("changed_xmls").values()[0]
-    except (exceptions.NotAllowedAOPInputError):
+    except exceptions.NotAllowedAOPInputError:
         return HTTPStatus.FORBIDDEN
-    except (exceptions.InvalidXMLError, exceptions.InputDataError):
+    except exceptions.InputDataError:
         return HTTPStatus.BAD_REQUEST
-    except exceptions.SaveError:
+    except (exceptions.ConclusionError, exceptions.InvalidNewPackageError):
         return HTTPStatus.INTERNAL_SERVER_ERROR
     else:
         return changed_xml or HTTPStatus.CREATED

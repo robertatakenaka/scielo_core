@@ -15,7 +15,7 @@ from packtools.sps.models.body import Body
 from packtools.sps.models.dates import ArticleDates
 
 from scielo_core.basic import xml_sps_zip_file
-from scielo_core.basic import exceptions
+from scielo_core.id_provider import exceptions
 
 
 LOGGER = logging.getLogger(__name__)

@@ -71,7 +71,7 @@ def get_article(pid):
 def _fetch_article_records(**kwargs):
     try:
         return mongo_db.fetch_records(Article, **kwargs)
-    except Exception as e:
+    except exceptions.FetchRecordsError as e:
         LOGGER.exception(
             "Fetching Article %s: %s %s" % (kwargs, type(e), str(e)))
         raise FetchArticleError(e)
@@ -80,7 +80,7 @@ def _fetch_article_records(**kwargs):
 def _fetch_migration_records(**kwargs):
     try:
         return mongo_db.fetch_records(models.Migration, **kwargs)
-    except Exception as e:
+    except exceptions.FetchRecordsError as e:
         LOGGER.exception(
             "Fetching Migration %s: %s %s" % (kwargs, type(e), str(e)))
         raise FetchMigrationError(e)

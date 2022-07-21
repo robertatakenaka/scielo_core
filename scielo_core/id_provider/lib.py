@@ -29,8 +29,15 @@ def request_document_id(
 
     Returns
     -------
-        str: changed_pkg_file_path
+        dict
+            {"changed_xmls": changed_xmls, "pkg_path": changed_pkg_file_path}
 
+    Raises
+    ------
+    exceptions.InputDataError
+    exceptions.ConclusionError
+    exceptions.ConnectionFailure
+    exceptions.InvalidNewPackageError
     """
     try:
         return controller.request_document_ids_from_file(
