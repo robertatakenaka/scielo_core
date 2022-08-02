@@ -27,7 +27,7 @@ def get_xml_by_v2(v2):
         doc = _fetch_most_recent_document(v2=v2)
         return doc.xml
     except exceptions.FetchMostRecentRecordError:
-        return
+        raise exceptions.DocumentDoesNotExistError("Not found document: %s" % v2)
 
 
 def get_xml(v3):
@@ -35,7 +35,7 @@ def get_xml(v3):
         doc = _fetch_most_recent_document(v3=v3)
         return doc.xml
     except exceptions.FetchMostRecentRecordError:
-        return
+        raise exceptions.DocumentDoesNotExistError("Not found document: %s" % v3)
 
 
 def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=None):
@@ -54,7 +54,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
     Returns
     -------
         dict
-            {"changed_xmls": changed_xmls, "pkg_path": new_pkg_file_path}
+            {"updated_filenames": updated_filenames, "pkg_path": new_pkg_file_path}
 
     Raises
     ------
@@ -66,7 +66,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
     """
     LOGGER.debug(pkg_file_path)
     user = user or 'unknown'
-    changed_xmls = {}
+    updated_filenames = []
     new_pkg_file_path = xml_sps.create_tmp_copy(pkg_file_path, new_pkg_file_path)
 
     pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
@@ -77,7 +77,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
             )
             changed_xml = request_document_ids_from_xml(xml, file_name, user)
             if changed_xml:
-                changed_xmls[file_name] = changed_xml
+                updated_filenames.append(file_name)
                 xml_sps_zip_file.update_zip_file_xml(
                     new_pkg_file_path, file_name, prefix + changed_xml)
 
@@ -91,10 +91,10 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
                 "Request document id error %s %s: %s %s" %
                 (new_pkg_file_path, file_name, type(e), e)
             )
-    if changed_xmls:
+    if updated_filenames:
         # verificar se pacote está legível
         pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
-        for file_name in pkg_items.keys():
+        for file_name in updated_filenames:
             try:
                 xmltree = xml_sps.get_xml_tree(pkg_items[file_name])
             except exceptions.InvalidXMLError as e:
@@ -103,7 +103,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
                     (new_pkg_file_path, file_name, type(e), e)
                 )
 
-    return {"changed_xmls": changed_xmls, "pkg_path": new_pkg_file_path}
+    return {"updated_filenames": updated_filenames, "pkg_path": new_pkg_file_path}
 
 
 def request_document_ids_from_xml(xml_content, file_name, user):
@@ -994,6 +994,21 @@ def _fetch_records(**kwargs):
 
 
 def _fetch_most_recent_document(**kwargs):
+
+    for pid_type in ("v2", "v3"):
+        try:
+            size = len(kwargs[pid_type])
+        except TypeError:
+            raise exceptions.InvalidSizeOfPid(
+                "Pid %s size expected = 23. Got 0" % pid_type)
+        except KeyError:
+            pass
+        else:
+            if size != 23:
+                raise exceptions.InvalidSizeOfPid(
+                        "Pid %s size expected = 23. Got %i" %
+                        (pid_type, size))
+
     try:
         registered = _fetch_records(**kwargs)
         return registered[0]

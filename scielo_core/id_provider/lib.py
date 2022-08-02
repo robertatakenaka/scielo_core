@@ -8,6 +8,10 @@ def connect(config_SCIELO_CORE_ID_PROVIDER_DB_URI):
     return controller.connect(config_SCIELO_CORE_ID_PROVIDER_DB_URI)
 
 
+def get_xml(v3):
+    return controller.get_xml(v3)
+
+
 def request_document_id(
         original_pkg_file_path,
         changed_pkg_file_path,

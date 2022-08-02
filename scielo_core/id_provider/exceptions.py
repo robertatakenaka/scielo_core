@@ -82,3 +82,7 @@ class ConnectionFailure(Exception):
 class InvalidNewPackageError(Exception):
     ...
 
+
+class InvalidSizeOfPid(Exception):
+	...
+
