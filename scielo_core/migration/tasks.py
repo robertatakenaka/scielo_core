@@ -386,7 +386,7 @@ def _create_tmp_xml_zip_file(filename, xml_content):
         xml_sps_zip_file.create_xml_zip_file(xml_zip_file_path, xml_content)
         LOGGER.debug("Created: %s" % xml_zip_file_path)
         return xml_zip_file_path
-    except xml_sps.etree.XMLSyntaxError as e:
+    except xml_sps.exceptions.GetXMLTreeError as e:
         raise UnableToCreateXMLZipFileError(
             "Unable to create XML ZIP file %s: %s %s" %
             (filename, type(e), e))

@@ -51,8 +51,8 @@ def get_xml_tree(xml_content):
         )
         return pref, etree.fromstring(xml)
 
-    except etree.XMLSyntaxError as e:
-        raise exceptions.InvalidXMLError(e)
+    except Exception as e:
+        raise exceptions.GetXMLTreeError(e)
 
 
 def tostring(xmlpre, xmltree):

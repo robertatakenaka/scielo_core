@@ -100,7 +100,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
         for file_name in updated_filenames:
             try:
                 pre, xmltree = xml_sps.get_xml_tree(pkg_items[file_name])
-            except exceptions.InvalidXMLError as e:
+            except exceptions.GetXMLTreeError as e:
                 raise exceptions.InvalidNewPackageError(
                     "Error in new package %s %s: %s %s" %
                     (new_pkg_file_path, file_name, type(e), e)
@@ -112,7 +112,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
 def request_document_ids_from_xml(xml_content, file_name, user):
     try:
         arguments = xml_sps.IdRequestArguments(xml_content)
-    except exceptions.InvalidXMLError as e:
+    except exceptions.GetXMLTreeError as e:
         raise exceptions.InputDataError(
             "Invalid XML in %s: %s" % (file_name, e)
         )
@@ -137,7 +137,7 @@ def request_document_ids_from_xml(xml_content, file_name, user):
         raise exceptions.InputDataError(e)
 
     except (
-            exceptions.InvalidXMLError,
+            exceptions.GetXMLTreeError,
             exceptions.PrepareDataToSaveError,
             exceptions.SavingError,
             ) as e:
@@ -196,9 +196,9 @@ def request_document_ids(
     exceptions.QueryingDocumentAsAOPError
     exceptions.FetchMostRecentRecordError
     exceptions.NotEnoughParametersToGetDocumentRecordError
-    exceptions.DocumentDoesNotExistError
+
     exceptions.GetRegisteredDocumentError
-    exceptions.InvalidXMLError
+    exceptions.GetXMLTreeError
     exceptions.PrepareDataToSaveError
     exceptions.SavingError
     """
@@ -363,7 +363,7 @@ def _pids_updated(input_data, registered_data):
 
     Raises
     ------
-    exceptions.InvalidXMLError
+    exceptions.GetXMLTreeError
 
     """
     LOGGER.debug("Input data: %s" % input_data)

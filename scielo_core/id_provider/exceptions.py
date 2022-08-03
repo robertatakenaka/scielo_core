@@ -86,3 +86,6 @@ class InvalidNewPackageError(Exception):
 class InvalidSizeOfPid(Exception):
 	...
 
+
+class GetXMLTreeError(Exception):
+	...
