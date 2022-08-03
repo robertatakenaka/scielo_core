@@ -23,26 +23,44 @@ def get_xml_content(xml_sps_file_path):
     ------
     str
     """
+    LOGGER.info(
+        "Try to get xml content from zipfile %s" % xml_sps_file_path
+    )
+    name, ext = os.path.splitext(xml_sps_file_path)
     try:
-        LOGGER.info(
-            "Try to get xml content from zipfile %s" % xml_sps_file_path
+        if ext == ".zip":
+            return get_xml_content_from_zip_file(xml_sps_file_path)
+        if ext == ".xml":
+            return get_xml_content_from_xml_file(xml_sps_file_path)
+    except IOError as e:
+        raise XMLReadError(
+            "Unable to get xml content from %s: %s %s" %
+            (xml_sps_file_path, type(e), e)
         )
-        with ZipFile(xml_sps_file_path) as zf:
-            for item in zf.namelist():
-                if item.endswith(".xml"):
-                    return zf.read(item).decode("utf-8")
-    except BadZipFile:
-        LOGGER.info(
-            "Try to get xml content from xml file %s" % xml_sps_file_path
-        )
-        try:
-            with open(xml_sps_file_path, "rb") as fp:
-                return fp.read().decode("utf-8")
-        except IOError as e:
-            raise XMLReadError(
-                "Unable to read %s: %s %s" %
-                (xml_sps_file_path, type(e), e)
-            )
+
+
+def get_xml_content_from_zip_file(xml_sps_file_path):
+    """
+    Return the first XML content in the Zip file.
+
+    Arguments
+    ---------
+        xml_sps_file_path: str
+        content: bytes
+
+    Return
+    ------
+    str
+    """
+    with ZipFile(xml_sps_file_path) as zf:
+        for item in zf.namelist():
+            if item.endswith(".xml"):
+                return zf.read(item).decode("utf-8")
+
+
+def get_xml_content_from_xml_file(xml_sps_file_path):
+    with open(xml_sps_file_path, "rb") as fp:
+        return fp.read().decode("utf-8")
 
 
 def update_zip_file_xml(xml_sps_file_path, xml_file_path, content):
@@ -93,9 +111,9 @@ def create_xml_zip_file(xml_sps_file_path, content):
     return os.path.isfile(xml_sps_file_path)
 
 
-def get_xml_content_items(xml_sps_file_path):
+def get_xml_content_items(xml_sps_file_path, filenames=None):
     """
-    Get XML content from XML file or Zip file
+    Get XML content items from XML file or Zip file
 
     Arguments
     ---------
@@ -103,38 +121,45 @@ def get_xml_content_items(xml_sps_file_path):
 
     Return
     ------
-    str
+    dict
     """
-    items = {}
+    name, ext = os.path.splitext(xml_sps_file_path)
     try:
-        LOGGER.info(
-            "Try to get xml content from zipfile %s" % xml_sps_file_path
-        )
-        with ZipFile(xml_sps_file_path) as zf:
-            for item in zf.namelist():
-                name, ext = os.path.splitext(item)
-                if ext == ".xml":
-                    try:
-                        items[item] = zf.read(item).decode("utf-8")
-                    except Exception as e:
-                        LOGGER.exception(
-                            "Unable to read %s from %s: %s %s" %
-                            (xml_sps_file_path, item, type(e), e)
+        if ext == ".zip":
+            return get_xml_content_items_from_zip_file(xml_sps_file_path, filenames)
+        if ext == ".xml":
+            xml = get_xml_content_from_xml_file(xml_sps_file_path)
+            item = os.path.basename(xml_sps_file_path)
+            return {item: xml}
 
-                        )
-    except BadZipFile:
-        LOGGER.info(
-            "Try to get xml content from xml file %s" % xml_sps_file_path
+    except IOError as e:
+        raise XMLReadError(
+            "Unable to get xml content items from %s: %s %s" %
+            (xml_sps_file_path, type(e), e)
         )
-        try:
-            with open(xml_sps_file_path, "rb") as fp:
-                item = os.path.basename(xml_sps_file_path)
-                name, ext = os.path.splitext(item)
-                if ext == ".xml":
-                    items[item] = fp.read().decode("utf-8")
-        except IOError as e:
-            raise XMLReadError(
-                "Unable to read %s: %s %s" %
-                (xml_sps_file_path, type(e), e)
-            )
+
+
+def get_xml_content_items_from_zip_file(xml_sps_file_path, filenames):
+    LOGGER.info(
+        "Try to get xml content items from zipfile %s" % xml_sps_file_path
+    )
+    bad_xmls = []
+    items = {}
+
+    with ZipFile(xml_sps_file_path) as zf:
+        for item in zf.namelist():
+            name, ext = os.path.splitext(item)
+            if ext == ".xml":
+                if filenames and item not in filenames:
+                    continue
+                try:
+                    items[item] = zf.read(item).decode("utf-8")
+                except Exception as e:
+                    bad_xmls.append((item, e))
+
+    if bad_xmls:
+        raise XMLReadError("\n".join([
+            "Unable to read %s from %s: %s %s" % (item, xml_sps_file_path, type(e), e)
+            for item, e in bad_xmls
+        ]))
     return items
