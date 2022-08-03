@@ -49,15 +49,17 @@ def get_xml_tree(xml_content):
         pref, xml = split_processing_instruction_doctype_declaration_and_xml(
             xml_content
         )
-        return etree.fromstring(xml)
+        return pref, etree.fromstring(xml)
 
     except etree.XMLSyntaxError as e:
         raise exceptions.InvalidXMLError(e)
 
 
-def update_ids(xml_content, v3, v2, aop_pid):
-    xmltree = get_xml_tree(xml_content)
+def tostring(xmlpre, xmltree):
+    return xmlpre + etree.tostring(xmltree, encoding="utf-8").decode("utf-8")
 
+
+def update_ids(xmltree, v3, v2, aop_pid):
     # update IDs
     article_ids = ArticleIds(xmltree)
     article_ids.v3 = v3
@@ -65,16 +67,11 @@ def update_ids(xml_content, v3, v2, aop_pid):
     if aop_pid:
         article_ids.aop_pid = aop_pid
 
-    # update XML
-    return etree.tostring(
-        article_ids._xmltree, encoding="utf-8").decode("utf-8")
-
 
 class IdRequestArguments:
 
     def __init__(self, xml_content):
-        self.xml_content = xml_content
-        self.xmltree = get_xml_tree(self.xml_content)
+        self.xmlpre, self.xmltree = get_xml_tree(xml_content)
 
     @property
     def data(self):
@@ -85,7 +82,8 @@ class IdRequestArguments:
         _data.update(self.authors)
         _data.update(self.article_titles)
         _data.update(self.partial_body)
-        _data['xml'] = self.xml_content
+        _data['xmltree'] = self.xmltree
+        _data['xmlpre'] = self.xmlpre
         return _data
 
     @property

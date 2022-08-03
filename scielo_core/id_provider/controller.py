@@ -72,23 +72,26 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
     pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
     for file_name in pkg_items.keys():
         try:
-            prefix, xml = xml_sps.split_processing_instruction_doctype_declaration_and_xml(
-                pkg_items[file_name]
-            )
-            changed_xml = request_document_ids_from_xml(xml, file_name, user)
+            changed_xml = request_document_ids_from_xml(pkg_items[file_name], file_name, user)
             if changed_xml:
                 updated_filenames.append(file_name)
-                xml_sps_zip_file.update_zip_file_xml(
-                    new_pkg_file_path, file_name, prefix + changed_xml)
+                try:
+                    xml_sps_zip_file.update_zip_file_xml(
+                        new_pkg_file_path, file_name, changed_xml)
+                except IOError:
+                    raise exceptions.ConclusionError(
+                        "Unable to create %s in %s error %s %s: %s %s" %
+                        (file_name, new_pkg_file_path, type(e), e)
+                    )
 
         except exceptions.InputDataError as e:
             raise exceptions.InputDataError(
-                "Request document id error %s %s: %s %s" %
+                "Input data error %s %s: %s %s" %
                 (new_pkg_file_path, file_name, type(e), e)
             )
         except exceptions.ConclusionError as e:
             raise exceptions.ConclusionError(
-                "Request document id error %s %s: %s %s" %
+                "Output data error %s %s: %s %s" %
                 (new_pkg_file_path, file_name, type(e), e)
             )
     if updated_filenames:
@@ -96,7 +99,7 @@ def request_document_ids_from_file(pkg_file_path, user=None, new_pkg_file_path=N
         pkg_items = xml_sps_zip_file.get_xml_content_items(new_pkg_file_path)
         for file_name in updated_filenames:
             try:
-                xmltree = xml_sps.get_xml_tree(pkg_items[file_name])
+                pre, xmltree = xml_sps.get_xml_tree(pkg_items[file_name])
             except exceptions.InvalidXMLError as e:
                 raise exceptions.InvalidNewPackageError(
                     "Error in new package %s %s: %s %s" %
@@ -151,7 +154,8 @@ def request_document_ids(
         authors, collab,
         article_titles,
         partial_body,
-        xml,
+        xmltree,
+        xmlpre,
         extra=None,
         user=None):
     """
@@ -210,7 +214,8 @@ def request_document_ids(
         authors, collab,
         article_titles,
         partial_body,
-        xml,
+        xmltree,
+        xmlpre,
         extra,
     )
 
@@ -232,11 +237,7 @@ def request_document_ids(
             "because it is already published in an issue"
         )
 
-    changed_input_xml = None
-    if _pids_updated(input_data, registered_data):
-        # verifica se o XML de entrada foi modificado com os
-        # pids recuperados / gerados
-        changed_input_xml = input_data['xml']
+    changed_input_xml = _pids_updated(input_data, registered_data)
 
     # prepara os dados para gravar
     pkg = _prepare_data_to_register(input_data, registered)
@@ -248,7 +249,8 @@ def request_document_ids(
     # registra a atualização da requisição
     _log_request_update(request, input_data)
 
-    return changed_input_xml
+    if changed_input_xml:
+        return input_data['xml']
 
 
 def _get_document_input_data(
@@ -261,7 +263,8 @@ def _get_document_input_data(
         authors, collab,
         article_titles,
         partial_body,
-        xml,
+        xmltree,
+        xmlpre,
         extra=None,
         ):
     """
@@ -286,7 +289,8 @@ def _get_document_input_data(
     collab: str
     article_titles: {"lang": str, "text": str} list
     partial_body: str
-    xml: str
+    xmltree: xmltree
+    xmlpre: str
     extra: dict
 
     Returns
@@ -308,7 +312,8 @@ def _get_document_input_data(
         authors, collab,
         article_titles,
         partial_body,
-        xml,
+        xmltree,
+        xmlpre,
         extra,
     )
     return document.attribs
@@ -377,8 +382,8 @@ def _pids_updated(input_data, registered_data):
     # print(ids, new_ids)
     if ids != new_ids:
         # update xml with pids
-        input_data["xml"] = xml_sps.update_ids(
-            input_data["xml"],
+        xml_sps.update_ids(
+            input_data["xmltree"],
             input_data["v3"],
             input_data["v2"],
             input_data["aop_pid"],
@@ -419,7 +424,8 @@ class Document:
                  authors, collab,
                  article_titles,
                  partial_body,
-                 xml,
+                 xmltree,
+                 xmlpre,
                  extra=None
                  ):
 
@@ -500,7 +506,8 @@ class Document:
         # extra
         document_data["extra"] = extra or {}
 
-        document_data["xml"] = xml
+        document_data["xmltree"] = xmltree
+        document_data["xmlpre"] = xmlpre
 
         self._attribs = document_data
 
@@ -946,7 +953,9 @@ def _prepare_data_to_register(document_data, registered):
         pkg.partial_body = _standardize_partial_body(
             document_data["partial_body"])
 
-        pkg.xml = document_data["xml"]
+        document_data['xml'] = xml_sps.tostring(
+            document_data['xmlpre'], document_data['xmltree'])
+        pkg.xml = document_data['xml']
 
         # dados de processamento / procedimentos
         pkg.extra = document_data["extra"]
